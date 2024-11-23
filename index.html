@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Anchor Pair Select</title>
+    <style>
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-container {
+            margin-bottom: 20px;
+        }
+
+        .image-row {
+            display: flex;
+            justify-content: center;
+        }
+
+        .image-container {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            overflow: hidden; /* Ensure images do not overstep the border */
+            width: 500px; /* Fixed width */
+            height: 500px; /* Fixed height */
+            position: relative;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            transition: transform 0.2s;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .coordinates {
+            margin-top: 20px;
+            width: 80%;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Image Anchor Pair Select</h1>
+    <div class="container">
+        <div class="input-container">
+            <input type="file" id="fileInput" accept="image/*" multiple>
+            <button id="startSelect1" disabled>Start Select 1-2</button>
+            <button id="startSelect2" disabled>Start Select 2-3</button>
+            <button id="resetZoom" disabled>Reset Zoom</button>
+            <button id="resetPosition" disabled>Reset Position</button>
+        </div>
+        <div class="image-row">
+            <div class="image-container">
+                <img id="image1" draggable="false">
+            </div>
+            <div class="image-container">
+                <img id="image2" draggable="false">
+            </div>
+            <div class="image-container">
+                <img id="image3" draggable="false">
+            </div>
+        </div>
+        <div class="coordinates" id="coordinates">
+            <h2>Selected Coordinates</h2>
+            <div id="coordinatesPhase1">
+                <h3>Phase 1 (Image 1 and 2)</h3>
+                <ul id="coordinatesList1"></ul>
+            </div>
+            <div id="coordinatesPhase2">
+                <h3>Phase 2 (Image 2 and 3)</h3>
+                <ul id="coordinatesList2"></ul>
+            </div>
+            <button id="saveCsv" disabled>Save as CSV</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedPoints = { phase1: [], phase2: [] };
+        let currentImage = 1;
+        let selectionStarted = false;
+        let selectionPhase = 0;
+        let scale = 1;
+        let isDragging = false;
+        let startX, startY;
+        let translateX1 = 0, translateY1 = 0;
+        let translateX2 = 0, translateY2 = 0;
+        let translateX3 = 0, translateY3 = 0;
+        const dragSpeed = 0.3;
+        let currentDraggingImage = null;
+
+        document.getElementById('fileInput').addEventListener('change', function (event) {
+            const files = event.target.files;
+            if (files.length === 3) {
+                displayImage(files[0], 'image1');
+                displayImage(files[1], 'image2');
+                displayImage(files[2], 'image3');
+            } else {
+                alert('Please select exactly 3 images.');
+            }
+        });
+
+        document.getElementById('startSelect1').addEventListener('click', function () {
+            selectionStarted = true;
+            selectionPhase = 1;
+            selectedPoints.phase1 = [];
+            currentImage = 1;
+            console.log('Selection started for images 1 and 2. Click on the images to select points.');
+        });
+
+        document.getElementById('startSelect2').addEventListener('click', function () {
+            selectionStarted = true;
+            selectionPhase = 2;
+            selectedPoints.phase2 = [];
+            currentImage = 2;
+            console.log('Selection started for images 2 and 3. Click on the images to select points.');
+        });
+
+        document.getElementById('resetZoom').addEventListener('click', function () {
+            scale = 1;
+            updateImageScale();
+        });
+
+        document.getElementById('resetPosition').addEventListener('click', function () {
+            resetImagePosition();
+        });
+
+        document.getElementById('saveCsv').addEventListener('click', function () {
+            saveCoordinatesAsCsv();
+        });
+
+        function displayImage(file, imageId) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = document.getElementById(imageId);
+                img.onload = function () {
+                    img.dataset.width = img.naturalWidth;
+                    img.dataset.height = img.naturalHeight;
+                    checkAllImagesSelected();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function checkAllImagesSelected() {
+            const img1 = document.getElementById('image1').src;
+            const img2 = document.getElementById('image2').src;
+            const img3 = document.getElementById('image3').src;
+
+            if (img1 && img2 && img3) {
+                document.getElementById('startSelect1').disabled = false;
+                document.getElementById('startSelect2').disabled = false;
+                document.getElementById('resetZoom').disabled = false;
+                document.getElementById('resetPosition').disabled = false;
+            }
+        }
+
+        document.getElementById('image1').addEventListener('click', function (event) {
+            if (selectionStarted && currentImage === 1 && selectionPhase === 1) {
+                logCoordinates(event, 'image1');
+                currentImage = 2;
+            }
+        });
+
+        document.getElementById('image2').addEventListener('click', function (event) {
+            if (selectionStarted && currentImage === 2) {
+                logCoordinates(event, 'image2');
+                currentImage = (selectionPhase === 1) ? 1 : 3;
+            }
+        });
+
+        document.getElementById('image3').addEventListener('click', function (event) {
+            if (selectionStarted && currentImage === 3 && selectionPhase === 2) {
+                logCoordinates(event, 'image3');
+                currentImage = 2;
+            }
+        });
+
+        function logCoordinates(event, imageId) {
+            const img = event.target;
+            const rect = img.getBoundingClientRect();
+            const scaleX = img.naturalWidth / rect.width;
+            const scaleY = img.naturalHeight / rect.height;
+            const x = Math.round((event.clientX - rect.left) * scaleX);
+            const y = Math.round((event.clientY - rect.top) * scaleY);
+            if (selectionPhase === 1) {
+                selectedPoints.phase1.push({ imageId, x, y });
+            } else if (selectionPhase === 2) {
+                selectedPoints.phase2.push({ imageId, x, y });
+            }
+            console.log(`Coordinates: (${x}, ${y})`);
+
+            if ((selectionPhase === 1 && selectedPoints.phase1.length === 6) || (selectionPhase === 2 && selectedPoints.phase2.length === 6)) {
+                selectionStarted = false;
+                console.log('Selection completed. Selected points:', selectedPoints);
+                updateCoordinatesDisplay();
+                document.getElementById('saveCsv').disabled = false;
+            }
+        }
+
+        function updateCoordinatesDisplay() {
+            const coordinatesList1 = document.getElementById('coordinatesList1');
+            const coordinatesList2 = document.getElementById('coordinatesList2');
+            coordinatesList1.innerHTML = '';
+            coordinatesList2.innerHTML = '';
+
+            selectedPoints.phase1.forEach((point, index) => {
+                if (index % 2 === 0) {
+                    const point1 = selectedPoints.phase1[index];
+                    const point2 = selectedPoints.phase1[index + 1];
+                    const li = document.createElement('li');
+                    li.textContent = `${point1.x},${point1.y},${point2.x},${point2.y}`;
+                    coordinatesList1.appendChild(li);
+                }
+            });
+
+            selectedPoints.phase2.forEach((point, index) => {
+                if (index % 2 === 0) {
+                    const point1 = selectedPoints.phase2[index];
+                    const point2 = selectedPoints.phase2[index + 1];
+                    const li = document.createElement('li');
+                    li.textContent = `${point1.x},${point1.y},${point2.x},${point2.y}`;
+                    coordinatesList2.appendChild(li);
+                }
+            });
+        }
+
+        function saveCoordinatesAsCsv() {
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + selectedPoints.phase1.reduce((acc, point, index) => {
+                    if (index % 2 === 0) {
+                        const nextPoint = selectedPoints.phase1[index + 1];
+                        acc.push(`${point.x},${point.y},${nextPoint.x},${nextPoint.y}`);
+                    }
+                    return acc;
+                }, []).join("\n")
+                + "\n"
+                + selectedPoints.phase2.reduce((acc, point, index) => {
+                    if (index % 2 === 0) {
+                        const nextPoint = selectedPoints.phase2[index + 1];
+                        acc.push(`${point.x},${point.y},${nextPoint.x},${nextPoint.y}`);
+                    }
+                    return acc;
+                }, []).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "coordinates.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function updateImageScale() {
+            document.getElementById('image1').style.transform = `scale(${scale}) translate(${translateX1}px, ${translateY1}px)`;
+            document.getElementById('image2').style.transform = `scale(${scale}) translate(${translateX2}px, ${translateY2}px)`;
+            document.getElementById('image3').style.transform = `scale(${scale}) translate(${translateX3}px, ${translateY3}px)`;
+        }
+
+        function startDrag(event) {
+            isDragging = true;
+            startX = event.clientX;
+            startY = event.clientY;
+            currentDraggingImage = event.target.id;
+        }
+
+        function drag(event) {
+            if (isDragging) {
+                const dx = (event.clientX - startX) * dragSpeed;
+                const dy = (event.clientY - startY) * dragSpeed;
+                if (currentDraggingImage === 'image1') {
+                    translateX1 += dx;
+                    translateY1 += dy;
+                } else if (currentDraggingImage === 'image2') {
+                    translateX2 += dx;
+                    translateY2 += dy;
+                } else if (currentDraggingImage === 'image3') {
+                    translateX3 += dx;
+                    translateY3 += dy;
+                }
+                updateImageScale();
+                startX = event.clientX;
+                startY = event.clientY;
+            }
+        }
+
+        function endDrag() {
+            isDragging = false;
+            currentDraggingImage = null;
+        }
+
+        function resetImagePosition() {
+            translateX1 = 0;
+            translateY1 = 0;
+            translateX2 = 0;
+            translateY2 = 0;
+            translateX3 = 0;
+            translateY3 = 0;
+            updateImageScale();
+        }
+
+        function handleWheel(event) {
+            event.preventDefault();
+            scale += event.deltaY * -0.005;
+            scale = Math.min(Math.max(.125, scale), 4);
+            updateImageScale();
+        }
+
+        document.getElementById('image1').addEventListener('mousedown', startDrag);
+        document.getElementById('image2').addEventListener('mousedown', startDrag);
+        document.getElementById('image3').addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', endDrag);
+        document.getElementById('image1').addEventListener('wheel', handleWheel);
+        document.getElementById('image2').addEventListener('wheel', handleWheel);
+        document.getElementById('image3').addEventListener('wheel', handleWheel);
+    </script>
+</body>
+
+</html>
