@@ -11,9 +11,9 @@
       "request": "launch",
       "preLaunchTask": "build",
       // If you have changed target frameworks, make sure to update the program path.
-      "program": "${workspaceFolder}/Lab1/bin/Debug/net8.0/Lab1.dll",
+      "program": "${workspaceFolder}/Hw1-Stitching/bin/Debug/net8.0/Hw1-Stitching.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/Lab1",
+      "cwd": "${workspaceFolder}/Hw1-Stitching",
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
       "console": "integratedTerminal",
       "stopAtEntry": false

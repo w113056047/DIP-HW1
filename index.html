@@ -66,7 +66,9 @@
     </div>
     <div class="container">
         <div class="input-container">
-            <input type="file" id="fileInput" accept="image/*" multiple>
+            <input type="file" id="fileInput1" accept="image/*">
+            <input type="file" id="fileInput2" accept="image/*">
+            <input type="file" id="fileInput3" accept="image/*">
             <button id="startSelect1" disabled>Start Select 1-2</button>
             <button id="startSelect2" disabled>Start Select 2-3</button>
             <button id="resetZoom" disabled>Reset Zoom</button>
@@ -111,14 +113,24 @@
         const dragSpeed = 0.3;
         let currentDraggingImage = null;
 
-        document.getElementById('fileInput').addEventListener('change', function (event) {
-            const files = event.target.files;
-            if (files.length === 3) {
-                displayImage(files[0], 'image1');
-                displayImage(files[1], 'image2');
-                displayImage(files[2], 'image3');
-            } else {
-                alert('Please select exactly 3 images.');
+        document.getElementById('fileInput1').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                displayImage(file, 'image1');
+            }
+        });
+
+        document.getElementById('fileInput2').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                displayImage(file, 'image2');
+            }
+        });
+
+        document.getElementById('fileInput3').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                displayImage(file, 'image3');
             }
         });
 
@@ -325,7 +337,7 @@
         function handleWheel(event) {
             event.preventDefault();
             scale += event.deltaY * -0.005;
-            scale = Math.min(Math.max(.125, scale), 4);
+            scale = Math.min(Math.max(.125, scale), 6);
             updateImageScale();
         }
 
