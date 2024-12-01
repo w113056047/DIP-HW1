@@ -1,14 +1,14 @@
 ﻿using OpenCvSharp;
 
 // 讀取圖片
-List<string> inputFiles = ["../img/t41.jpeg", "../img/t42.jpeg", "../img/t43.jpeg"];
+List<string> inputFiles = ["image1.jpeg", "image2.jpeg", "image3.jpeg"];
 
 // x,y 的 padding
 int yPadding = 100;
 int xPadding = 100;
 
 // 讀取錨點座標
-var anchorPairs = File.ReadAllLines("../coordinates.csv")
+var anchorPairs = File.ReadAllLines("coordinates.csv")
     .Select(line => line.Split(','))
     .Select(pair => new double[,] { { double.Parse(pair[0]), double.Parse(pair[1]) }, { double.Parse(pair[2]), double.Parse(pair[3]) } })
     .ToList();
@@ -115,9 +115,14 @@ for (int y = 0; y < img2.Height; y++)
     }
 }
 
-Cv2.ImShow("intermediate", intermdiate);
-Cv2.WaitKey();
-Cv2.DestroyAllWindows();
+int maxX, maxY, minY;
+
+FindBoundry(intermdiate, out maxX, out maxY, out minY);
+intermdiate = intermdiate.SubMat(0, maxY, 0, maxX);
+
+// Cv2.ImShow("intermediate", intermdiate);
+// Cv2.WaitKey();
+// Cv2.DestroyAllWindows();
 
 var intermdiateIndexer = intermdiate.GetIndexer();
 
@@ -161,41 +166,19 @@ for (int y = 0; y < img1.Height; y++)
     }
 }
 
-int maxX = 0;
-int maxY = 0;
-int minY = int.MaxValue;
-
-var outputIndexer = finalOutput.GetIndexer();
-
-// 裁切有效範圍
-for (int y = 0; y < finalOutput.Height; y++)
-{
-    for (int x = 0; x < finalOutput.Width; x++)
-    {
-        var (i1, i2, i3) = outputIndexer[y, x];
-        if (i1 != 0 || i2 != 0 || i3 != 0)
-        {
-            if (x > maxX)
-            {
-                maxX = x;
-            }
-            if (y > maxY)
-            {
-                maxY = y;
-            }
-            if (y < minY)
-            {
-                minY = y;
-            }
-        }
-    }
-}
+FindBoundry(finalOutput, out maxX, out maxY, out minY);
 
 finalOutput = finalOutput.SubMat(minY, maxY, 0, maxX);
 
-Cv2.ImShow("output", finalOutput);
-Cv2.WaitKey();
-Cv2.DestroyAllWindows();
+// Cv2.ImShow("output", finalOutput);
+// Cv2.WaitKey();
+// Cv2.DestroyAllWindows();
+
+// output file
+finalOutput.SaveImage("output.jpg");
+
+Console.WriteLine($"Output saved to output.jpg");
+
 
 // bilinear interpolation
 static Vec3b Interpolate(ref MatIndexer<Vec3b> matIndexer, double x, double y)
@@ -223,4 +206,39 @@ static Vec3b Interpolate(ref MatIndexer<Vec3b> matIndexer, double x, double y)
 
     return c;
 
+}
+
+/// <summary>
+/// 取得圖片有效範圍
+/// </summary>
+static void FindBoundry(Mat<Vec3b> finalOutput, out int maxX, out int maxY, out int minY)
+{
+    maxX = 0;
+    maxY = 0;
+    minY = int.MaxValue;
+    var outputIndexer = finalOutput.GetIndexer();
+
+    // 裁切有效範圍
+    for (int y = 0; y < finalOutput.Height; y++)
+    {
+        for (int x = 0; x < finalOutput.Width; x++)
+        {
+            var (i1, i2, i3) = outputIndexer[y, x];
+            if (i1 != 0 || i2 != 0 || i3 != 0)
+            {
+                if (x > maxX)
+                {
+                    maxX = x;
+                }
+                if (y > maxY)
+                {
+                    maxY = y;
+                }
+                if (y < minY)
+                {
+                    minY = y;
+                }
+            }
+        }
+    }
 }

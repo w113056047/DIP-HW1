@@ -484,7 +484,5 @@ $RECYCLE.BIN/
 *.swp
 
 
-*.csv
-*.jpeg
-*.jpg
-*.png
+# *.csv
+img/*
